@@ -8,6 +8,6 @@ google-cloud-bigquery
 
 # Bibliotecas para o Chatbot LangChain
 langchain
-langchain-google-vertexai
+langchain-google-genai
 langchain-community
 sqlalchemy-bigquery
