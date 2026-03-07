@@ -34,12 +34,28 @@ market_indicators AS (
     FROM silver_data s
 )
 
--- O SELECT final agora enriquece os dados com as informações das empresas
+-- O SELECT final agora processa o lote completo com ordem lógica de colunas
 SELECT 
-    m.*,
+    -- 1. Eixo Temporal e Identificação
+    m.data_pregao,
+    m.ticker,
+    
+    -- 2. Contexto da Entidade (Enriquecimento via Seed)
     d.nome_empresa,
     d.setor,
     d.sub_setor,
-    d.tipo_ativo
+    d.tipo_ativo,
+
+    -- 3. Métricas de Mercado (Dados Brutos)
+    m.preco_abertura,
+    m.preco_fechamento,
+    m.preco_maximo,
+    m.preco_minimo,
+    m.volume_negociado,
+
+    -- 4. Indicadores de Performance (KPIs Calculados)
+    m.variacao_diaria_pct,
+    m.media_movel_7d
+
 FROM market_indicators m
 LEFT JOIN depara d ON m.ticker = d.ticker
