@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 PROJECT_ID = "projeto-wealth-tech" 
 DATASET_ID = "bronze"
 TABLE_NAME = "historico_acoes"
-KEY_PATH = "/opt/airflow/credentials/gcp_key.json"
+KEY_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 TICKERS = ["RENT3.SA", "PETR4.SA", "VALE3.SA", "ITUB4.SA", "WEGE3.SA"]
 
