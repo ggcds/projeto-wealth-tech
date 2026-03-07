@@ -14,6 +14,9 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
+# Logs
+logs/
+
 # dbt logs e artefatos
 invest_analytics/logs/
 invest_analytics/target/
