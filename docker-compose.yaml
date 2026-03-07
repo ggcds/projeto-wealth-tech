@@ -12,11 +12,13 @@ services:
     environment:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - GOOGLE_APPLICATION_CREDENTIALS=/opt/airflow/credentials/gcp_key.json
-    ports:
-      - "8080:8080"
-    entrypoint: >
+      - _AIRFLOW_DB_UPGRADE=True
+      - _PIP_ADDITIONAL_DEPENDENCIES=yfinance pandas-gbq db-dtypes dbt-bigquery
+    command: >
       bash -c "pip install --upgrade pip && 
                pip install -r /opt/airflow/requirements.txt && 
                airflow db init && 
                (airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@admin.com --password admin || true) &&
                airflow webserver & airflow scheduler"
+    ports:
+      - "8080:8080"
