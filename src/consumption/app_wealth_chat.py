@@ -11,7 +11,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
 # 2. Carrega credenciais com o ESCOPO correto para Cloud Platform
 creds = service_account.Credentials.from_service_account_file(
     key_path,
-    scopes=['https://www.googleapis.com/auth/cloud-platform'] # Adicione esta linha
+    scopes=['https://www.googleapis.com/auth/cloud-platform']
 )
 
 # 3. Conexão com o BigQuery

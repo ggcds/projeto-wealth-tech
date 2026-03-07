@@ -1,24 +1,53 @@
-version: '3.8'
 services:
-  airflow:
+  # 1. Banco de Dados para Metadados do Airflow
+  postgres:
+    image: postgres:13
+    container_name: postgres_wealth_tech
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Configurações Compartilhadas (Template)
+  airflow-common: &airflow-common
     image: apache/airflow:2.10.0-python3.12
-    container_name: airflow_wealth_tech
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - GOOGLE_APPLICATION_CREDENTIALS=/opt/airflow/credentials/gcp_key.json
+      - _PIP_ADDITIONAL_DEPENDENCIES=yfinance pandas-gbq db-dtypes dbt-bigquery langchain-google-genai langchain-community sqlalchemy-bigquery
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
       - ./invest_analytics:/opt/airflow/invest_analytics
       - ./credentials:/opt/airflow/credentials
       - ./requirements.txt:/opt/airflow/requirements.txt
-    environment:
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - GOOGLE_APPLICATION_CREDENTIALS=/opt/airflow/credentials/gcp_key.json
-      - _AIRFLOW_DB_UPGRADE=True
-      - _PIP_ADDITIONAL_DEPENDENCIES=yfinance pandas-gbq db-dtypes dbt-bigquery
-    command: >
-      bash -c "pip install --upgrade pip && 
-               pip install -r /opt/airflow/requirements.txt && 
-               airflow db init && 
-               (airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@admin.com --password admin || true) &&
-               airflow webserver & airflow scheduler"
+    user: "${AIRFLOW_UID:-5000}:0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # 3. Interface Gráfica (Webserver)
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow_webserver
+    command: webserver
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # 4. O Cérebro (Scheduler)
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow_scheduler
+    command: scheduler
