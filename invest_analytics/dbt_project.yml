@@ -26,6 +26,7 @@ models:
     marts:
       +materialized: table
       +schema: gold
+      +cluster_by: ["data_pregao", "ticker"] # O BigQuery organiza os dados fisicamente por esses campos
       +partition_by:
         field: data_pregao
         data_type: date

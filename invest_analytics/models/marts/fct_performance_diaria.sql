@@ -19,3 +19,4 @@ calculos as (
 )
 
 select * from calculos
+order by data_pregao desc, ticker asc
