@@ -1,19 +1,27 @@
 import os
+from google.oauth2 import service_account
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import create_sql_agent
 
-# 1. Autenticação (Caminho fixo do Docker)
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/opt/airflow/credentials/gcp_key.json"
+# 1. Caminho da chave dentro do Docker
+key_path = "/opt/airflow/credentials/gcp_key.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
 
-# 2. Conexão com o BigQuery
-# Substitua 'projeto-wealth-tech' pelo ID real do seu projeto se for diferente
+# 2. Carrega credenciais da Service Account explicitamente
+creds = service_account.Credentials.from_service_account_file(key_path)
+
+# 3. Conexão com o BigQuery (Dataset Gold)
 db = SQLDatabase.from_uri("bigquery://projeto-wealth-tech/gold")
 
-# 3. Inicialização do Gemini 1.5 Pro (Nova biblioteca)
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0)
+# 4. Inicialização do Gemini 1.5 Pro com credenciais de Service Account
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-pro", 
+    temperature=0,
+    credentials=creds
+)
 
-# 4. Criação do Agente SQL
+# 5. Criação do Agente SQL
 agent_executor = create_sql_agent(
     llm, 
     db=db, 
