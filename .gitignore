@@ -2,25 +2,32 @@
 .env/
 venv/
 env/
+.env
 
 # Credenciais e Segredos (Segurança Máxima)
 credentials/
-*.json
-.dbt/
+# Removido *.json genérico para evitar ignorar arquivos de config legítimos
+# A pasta credentials/ já protege o que está dentro dela.
 
 # Python caches
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
 # dbt logs e artefatos
 invest_analytics/logs/
 invest_analytics/target/
+invest_analytics/dbt_packages/
 invest_analytics/dbt_modules/
-invest_analytics/packages/
+# O arquivo de log do dbt na raiz da pasta
+invest_analytics/*.log
+
+# Airflow
+airflow/airflow.cfg
+airflow/logs/
+airflow/unittests.cfg
+airflow/*.db
 
 # Sistema
 .DS_Store
 Thumbs.db
-
-# Airflow
-airflow/airflow.cfg
