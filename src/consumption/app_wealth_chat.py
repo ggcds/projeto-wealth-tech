@@ -8,13 +8,16 @@ from langchain_community.agent_toolkits import create_sql_agent
 key_path = "/opt/airflow/credentials/gcp_key.json"
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
 
-# 2. Carrega credenciais da Service Account explicitamente
-creds = service_account.Credentials.from_service_account_file(key_path)
+# 2. Carrega credenciais com o ESCOPO correto para Cloud Platform
+creds = service_account.Credentials.from_service_account_file(
+    key_path,
+    scopes=['https://www.googleapis.com/auth/cloud-platform'] # Adicione esta linha
+)
 
-# 3. Conexão com o BigQuery (Dataset Gold)
+# 3. Conexão com o BigQuery
 db = SQLDatabase.from_uri("bigquery://projeto-wealth-tech/gold")
 
-# 4. Inicialização do Gemini 1.5 Pro com credenciais de Service Account
+# 4. Inicialização do Gemini 1.5 Pro
 llm = ChatGoogleGenerativeAI(
     model="gemini-1.5-pro", 
     temperature=0,
@@ -22,21 +25,14 @@ llm = ChatGoogleGenerativeAI(
 )
 
 # 5. Criação do Agente SQL
-agent_executor = create_sql_agent(
-    llm, 
-    db=db, 
-    agent_type="openai-tools", 
-    verbose=True
-)
+agent_executor = create_sql_agent(llm, db=db, agent_type="openai-tools", verbose=True)
 
 if __name__ == "__main__":
     print("\n📈 Wealth Tech Chat - IA Analytics Ativa!")
     while True:
         user_query = input("\nPergunta sobre seus ativos: ")
         if user_query.lower() in ["sair", "exit"]: break
-        
         try:
-            # O agente usará os metadados do dbt para entender o SQL
             response = agent_executor.invoke({"input": user_query})
             print(f"\nResposta: {response['output']}")
         except Exception as e:
