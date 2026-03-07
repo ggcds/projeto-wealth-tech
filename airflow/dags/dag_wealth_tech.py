@@ -28,13 +28,13 @@ with DAG(
     # Tarefa 2: Rodar o dbt (Silver e Gold)
     transformar_dados = BashOperator(
         task_id='dbt_run_gold_silver',
-        bash_command='cd /opt/airflow/invest_analytics && dbt run'
+        bash_command='cd /opt/airflow/invest_analytics && dbt run --profiles-dir .',
     )
 
     # Tarefa 3: Rodar os testes de qualidade
     testar_dados = BashOperator(
         task_id='dbt_test',
-        bash_command='cd /opt/airflow/invest_analytics && dbt test'
+        bash_command='cd /opt/airflow/invest_analytics && dbt test --profiles-dir .'
     )
 
     # Definindo a ordem: Extrai -> Transforma -> Testa

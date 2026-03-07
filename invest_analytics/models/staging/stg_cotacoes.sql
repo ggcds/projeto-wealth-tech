@@ -1,26 +1,17 @@
 {{
   config(
-    materialized='incremental',
+    materialized='table',
     partition_by={
       "field": "data_pregao",
       "data_type": "date",
       "granularity": "day"
     },
-    incremental_strategy='insert_overwrite',
     cluster_by=['ticker']
   )
 }}
 
 WITH raw_source AS (
-    SELECT * FROM {{ ref('bronze_historico_acoes') }}
-    
-    {% if is_incremental() %}
-    -- Mantém a integridade dos dados reprocessando os últimos 3 dias (lookback window)
-    WHERE CAST(date AS DATE) >= DATE_SUB(
-        (SELECT MAX(data_pregao) FROM {{ this }}), 
-        INTERVAL 3 DAY
-    )
-    {% endif %}
+    SELECT * FROM {{ source('bronze', 'historico_acoes') }}
 ),
 
 final_transformation AS (

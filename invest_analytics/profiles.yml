@@ -1,0 +1,13 @@
+invest_analytics:
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      keyfile: /opt/airflow/credentials/gcp_key.json
+      project: projeto-wealth-tech
+      dataset: silver
+      threads: 4
+      timeout_seconds: 300
+      location: US
+      priority: interactive
+  target: dev

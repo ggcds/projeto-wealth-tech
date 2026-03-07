@@ -1,61 +1,84 @@
+import os
+import logging
 import yfinance as yf
 import pandas as pd
 import pandas_gbq
-import os
+from google.oauth2 import service_account
 
-# ==========================================
-# 1. Configurações Iniciais
-# ==========================================
-# Aponta para o seu arquivo JSON (o caminho funciona se você rodar na raiz do projeto)
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "credentials/gcp_key.json"
+# Configuração de Logging para monitoramento no Airflow
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# ATENÇÃO: Confirme se o ID do projeto é exatamente esse na linha 3 do seu JSON
+# Configurações de Ambiente
 PROJECT_ID = "projeto-wealth-tech" 
-DESTINATION_TABLE = "bronze.historico_acoes" 
+DATASET_ID = "bronze"
+TABLE_NAME = "historico_acoes"
+KEY_PATH = "/opt/airflow/credentials/gcp_key.json"
 
-# Ativos brasileiros da nossa carteira
 TICKERS = ["RENT3.SA", "PETR4.SA", "VALE3.SA", "ITUB4.SA", "WEGE3.SA"]
 
-# ==========================================
-# 2. Extração de Dados (API Yahoo)
-# ==========================================
-dados_coletados = []
-print("Iniciando extração do Yahoo Finance...\n")
+def get_credentials(path):
+    """Carrega credenciais de forma segura para o ambiente Docker."""
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Chave GCP não encontrada em: {path}")
+    return service_account.Credentials.from_service_account_file(path)
 
-for ticker in TICKERS:
-    print(f"Extraindo dados de: {ticker}")
-    acao = yf.Ticker(ticker)
-    df = acao.history(period="1y") 
-    
-    if not df.empty: # Garante que só adiciona se houver dados
-        df.reset_index(inplace=True)
-        df['Ticker'] = ticker
-        df = df[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']]
-        dados_coletados.append(df)
+def fetch_market_data(tickers, period="1y"):
+    """Extrai e padroniza dados do Yahoo Finance."""
+    collected_data = []
+    logging.info(f"Iniciando extração para {len(tickers)} ativos...")
 
-tabela_final = pd.concat(dados_coletados, ignore_index=True)
-tabela_final.columns = [col.replace(' ', '_').lower() for col in tabela_final.columns]
-tabela_final = tabela_final.dropna(subset=['close']) # Remove nulos para não sujar a Silver
-print(f"\nExtração concluída: {len(tabela_final)} linhas.")
+    for ticker in tickers:
+        try:
+            df = yf.Ticker(ticker).history(period=period)
+            if df.empty:
+                logging.warning(f"Nenhum dado encontrado para {ticker}")
+                continue
+                
+            df = df.reset_index()
+            df['ticker'] = ticker.upper()
+            # Seleção e padronização de colunas
+            df = df[['Date', 'ticker', 'Open', 'High', 'Low', 'Close', 'Volume']]
+            df.columns = [col.lower() for col in df.columns]
+            
+            # Tratamento de fuso horário para compatibilidade com BigQuery
+            if df['date'].dt.tz is not None:
+                df['date'] = df['date'].dt.tz_localize(None)
+                
+            collected_data.append(df)
+            logging.info(f"Dados de {ticker} extraídos com sucesso.")
+        except Exception as e:
+            logging.error(f"Erro ao extrair {ticker}: {e}")
 
-# ==========================================
-# 3. Carga de Dados (BigQuery)
-# ==========================================
-print("\nIniciando o envio para o BigQuery...")
+    return pd.concat(collected_data, ignore_index=True) if collected_data else pd.DataFrame()
 
-# Padronização: O BigQuery prefere colunas sem espaços e em minúsculo
-tabela_final.columns = [col.replace(' ', '_').lower() for col in tabela_final.columns]
+def load_to_bigquery(df, project_id, dataset, table, credentials):
+    """Realiza a carga no BigQuery com tratamento de erros."""
+    if df.empty:
+        logging.error("Dataframe vazio. Abortando carga.")
+        return
 
-# Tratamento de Data: Remove o fuso horário para evitar erro de incompatibilidade no BigQuery
-if tabela_final['date'].dt.tz is not None:
-    tabela_final['date'] = tabela_final['date'].dt.tz_localize(None)
+    destination = f"{dataset}.{table}"
+    try:
+        logging.info(f"Enviando {len(df)} linhas para {destination}...")
+        pandas_gbq.to_gbq(
+            dataframe=df,
+            destination_table=destination,
+            project_id=project_id,
+            credentials=credentials,
+            if_exists='append',
+            progress_bar=False
+        )
+        logging.info("Carga concluída com sucesso!")
+    except Exception as e:
+        logging.error(f"Falha na carga para o BigQuery: {e}")
+        raise
 
-# Envia os dados para a nuvem
-pandas_gbq.to_gbq(
-    tabela_final, 
-    destination_table=DESTINATION_TABLE, 
-    project_id=PROJECT_ID, 
-    if_exists='replace' # Cria a tabela se não existir, ou substitui se já existir
-)
-
-print(f"\nSucesso! Dados carregados na tabela: {DESTINATION_TABLE} no GCP.")
+if __name__ == "__main__":
+    # Execução do Pipeline
+    try:
+        creds = get_credentials(KEY_PATH)
+        data = fetch_market_data(TICKERS)
+        load_to_bigquery(data, PROJECT_ID, DATASET_ID, TABLE_NAME, creds)
+    except Exception as e:
+        logging.critical(f"Falha crítica no pipeline: {e}")
+        exit(1)

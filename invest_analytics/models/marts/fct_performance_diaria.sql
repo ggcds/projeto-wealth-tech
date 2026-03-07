@@ -1,12 +1,11 @@
 {{
   config(
-    materialized='incremental',
+    materialized='table',
     partition_by={
       "field": "data_pregao",
       "data_type": "date",
       "granularity": "day"
     },
-    incremental_strategy='insert_overwrite',
     cluster_by=['ticker']
   )
 }}
@@ -14,25 +13,17 @@
 WITH silver_data AS (
     SELECT * FROM {{ ref('stg_cotacoes') }}
     
-    {% if is_incremental() %}
-    -- Garante que temos dados suficientes (7 dias) para calcular a média móvel sem lacunas
-    WHERE data_pregao >= DATE_SUB(
-        (SELECT MAX(data_pregao) FROM {{ this }}), 
-        INTERVAL 10 DAY
-    )
-    {% else %}
-    -- Carga inicial limitada a 1 ano para performance
+    -- Filtro fixo de 1 ano para garantir performance e relevância dos dados
     WHERE data_pregao >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR)
-    {% endif %}
 ),
 
 market_indicators AS (
     SELECT
         *,
-        -- Cálculo de volatilidade diária (fechamento vs abertura)
+        -- Cálculo de volatilidade diária resiliente a erros (SAFE_DIVIDE)
         ROUND(SAFE_DIVIDE((preco_fechamento - preco_abertura), preco_abertura) * 100, 2) AS variacao_diaria_pct,
         
-        -- Média móvel aritmética (SMA) de 7 períodos
+        -- Média móvel aritmética (SMA) de 7 períodos baseada em janelas de tempo
         AVG(preco_fechamento) OVER (
             PARTITION BY ticker 
             ORDER BY data_pregao 
@@ -41,8 +32,5 @@ market_indicators AS (
     FROM silver_data
 )
 
+-- O SELECT final agora processa o lote completo de 1 ano
 SELECT * FROM market_indicators
-{% if is_incremental() %}
--- Filtra para inserir apenas os dias que foram de fato atualizados/novos
-WHERE data_pregao >= DATE_SUB((SELECT MAX(data_pregao) FROM {{ this }}), INTERVAL 3 DAY)
-{% endif %}
