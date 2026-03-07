@@ -1,6 +1,13 @@
+# Bibliotecas padrão
 yfinance
 pandas
 pandas-gbq
 db-dtypes
 dbt-bigquery
 google-cloud-bigquery
+
+# Bibliotecas para o Chatbot LangChain
+langchain
+langchain-google-vertexai
+langchain-community
+sqlalchemy-bigquery
