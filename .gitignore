@@ -1,0 +1,23 @@
+# Ambiente Virtual
+.env/
+venv/
+env/
+
+# Credenciais e Segredos (Segurança Máxima)
+credentials/
+*.json
+.dbt/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# dbt logs e artefatos
+invest_analytics/logs/
+invest_analytics/target/
+invest_analytics/dbt_modules/
+invest_analytics/packages/
+
+# Sistema
+.DS_Store
+Thumbs.db

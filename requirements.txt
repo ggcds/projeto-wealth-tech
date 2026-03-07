@@ -1,0 +1,5 @@
+yfinance
+pandas
+pandas-gbq
+db-dtypes
+dbt-bigquery
