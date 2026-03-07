@@ -4,49 +4,45 @@ Este projeto implementa um pipeline de dados ponta a ponta para análise de ativ
 
 ## 🏗️ Arquitetura e Tecnologias
 
-O projeto foi desenhado focando em escalabilidade, organização e baixo custo de processamento no Google Cloud:
+O projeto foi desenhado focando em escalabilidade, organização e conformidade com o **BigQuery Sandbox (Free Tier)**:
 
-* **Ingestão (Bronze):** Script Python otimizado que extrai apenas o último ano de dados via `yfinance`, mantendo a tabela enxuta no BigQuery.
-* **Transformação (Silver):** dbt para limpeza e tipagem rigorosa de dados (uso de `NUMERIC` para precisão financeira).
-* **Inteligência (Gold):** Modelagem de KPIs financeiros (Variação Diária % e Médias Móveis) via dbt.
-* **Orquestração:** Apache Airflow rodando em Docker para automação e gestão do fluxo.
+* **Ingestão (Bronze):** Script Python com `yfinance` e autenticação via Service Account, extraindo 1 ano de histórico para o BigQuery.
+* **Transformação (Silver):** dbt para limpeza, renomeação e tipagem rigorosa (uso de `NUMERIC` para precisão em valores monetários).
+* **Inteligência (Gold):** Modelagem de KPIs financeiros como **Variação Diária %** e **Média Móvel de 7 dias** utilizando Window Functions.
+* **Orquestração:** Apache Airflow rodando em Docker para gestão do fluxo de trabalho.
 * **Data Warehouse:** Google BigQuery.
 
-[Image of Data engineering medallion architecture bronze silver gold]
+
 
 ---
 
-## 🖥️ Guia da Demonstração (Step-by-Step)
+## 🖥️ Guia da Demonstração
 
-Para validar o pipeline durante a apresentação, siga este roteiro:
+Para validar o pipeline, siga este roteiro:
 
 ### 1. Preparação da Infraestrutura
-* **Subida do Ambiente:** Ao executar `docker-compose up -d`, demonstramos a portabilidade da solução através de containers. O ambiente isolado garante que o pipeline rode sem conflitos de dependências locais.
+* **Docker:** Execute `docker-compose up -d`. O ambiente isolado garante que o dbt e o Airflow comuniquem-se sem conflitos locais.
+* **Segurança:** As credenciais e logs estão protegidos via `.gitignore` para evitar exposição de chaves do GCP.
 
 ### 2. Orquestração no Airflow (`localhost:8080`)
-* **Acesso e Login:** Credenciais padrão (`admin`/`admin`).
-* **Ativação (Unpause):** Ative a DAG `pipeline_wealth_tech`.
-* **Disparo (Trigger):** Clique no botão **Play** para iniciar o fluxo manual.
-* **Monitoramento (Graph View):** Acompanhe a execução sequencial:
-    1.  `extrair_dados_yahoo`: Script Python popula a camada **Bronze** com 1 ano de histórico.
-    2.  `dbt_run_gold_silver`: O dbt processa as transformações e cálculos de indicadores.
-    3.  `dbt_test`: Execução de testes de qualidade para garantir integridade dos dados finais.
+* **Ativação:** Ligue a DAG `pipeline_wealth_tech`.
+* **Disparo:** Inicie o fluxo manualmente. O Airflow executará a extração Python, seguida pelo `dbt run` e `dbt test`.
 
 ### 3. Validação no Google BigQuery
-* **Camada Gold:** No console do GCP, valide a tabela `gold.fct_performance_diaria`.
-* **Insight de Negócio:** Destaque os campos de **Variação Diária (%)** e **Média Móvel de 7 dias**, que alimentam o produto de Wealth Tech.
+* **Camada Gold:** Acesse a tabela `gold.fct_performance_diaria`.
+* **Diferencial:** Note o uso de `SAFE_DIVIDE` e `ROWS BETWEEN` para garantir cálculos precisos mesmo em feriados ou dias sem pregão.
 
 ---
 
 ## 🛠️ Como Executar
 
-1.  **Configuração:** Coloque sua chave do GCP em `credentials/gcp_key.json`.
-2.  **Subir Ambiente:**
+1.  **Credenciais:** Crie a pasta `credentials/` e coloque sua chave do GCP em `gcp_key.json`.
+2.  **Configuração Local:** Crie as pastas `logs/` e `airflow/logs/` (ignoradas pelo Git).
+3.  **Deploy:**
     ```bash
     docker-compose up -d
     ```
-3.  **Executar Pipeline:** Acesse o Airflow em `localhost:8080` e dispare a DAG manualmente.
 
-## 💡 Diferenciais Técnicos
-* **Otimização de Custos:** Lógica de `replace` na Bronze e janelas temporais fixas para reduzir o faturamento no BigQuery.
-* **Governança:** Testes automatizados via dbt para evitar nulos e inconsistências.
+## 💡 Notas Técnicas (Sandbox Compatibility)
+* **Estratégia de Carga:** Devido às restrições de DML na conta gratuita do BigQuery, os modelos dbt utilizam `materialized='table'`, garantindo o processamento completo sem erros de permissão.
+* **Performance:** Uso de `partition_by` e `cluster_by` para otimizar o custo de consulta na camada Gold.
