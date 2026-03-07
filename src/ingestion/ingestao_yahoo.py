@@ -25,13 +25,17 @@ print("Iniciando extração do Yahoo Finance...\n")
 for ticker in TICKERS:
     print(f"Extraindo dados de: {ticker}")
     acao = yf.Ticker(ticker)
-    df = acao.history(period="1y")
-    df.reset_index(inplace=True)
-    df['Ticker'] = ticker
-    df = df[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']]
-    dados_coletados.append(df)
+    df = acao.history(period="1y") 
+    
+    if not df.empty: # Garante que só adiciona se houver dados
+        df.reset_index(inplace=True)
+        df['Ticker'] = ticker
+        df = df[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']]
+        dados_coletados.append(df)
 
 tabela_final = pd.concat(dados_coletados, ignore_index=True)
+tabela_final.columns = [col.replace(' ', '_').lower() for col in tabela_final.columns]
+tabela_final = tabela_final.dropna(subset=['close']) # Remove nulos para não sujar a Silver
 print(f"\nExtração concluída: {len(tabela_final)} linhas.")
 
 # ==========================================
