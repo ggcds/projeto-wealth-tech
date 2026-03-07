@@ -6,7 +6,7 @@ renamed as (
     select
         cast(date as date) as data_pregao,
         upper(ticker) as ticker,
-        -- Usando NUMERIC para precisão financeira
+        -- NUMERIC para garantir precisão em valores monetários
         cast(open as numeric) as preco_abertura,
         cast(high as numeric) as preco_maximo,
         cast(low as numeric) as preco_minimo,

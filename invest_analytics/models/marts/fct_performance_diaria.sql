@@ -1,7 +1,8 @@
 with silver_data as (
     select * from {{ ref('stg_cotacoes') }}
+    -- Filtra para processar apenas os últimos 365 dias
+    where data_pregao >= date_sub(current_date(), interval 1 year)
 ),
-
 calculos as (
     select
         *,
