@@ -1,13 +1,22 @@
-# Bibliotecas padrão
+# --- Ingestão e Processamento de Dados ---
 yfinance
 pandas
 pandas-gbq
 db-dtypes
-dbt-bigquery
 google-cloud-bigquery
+google-cloud-bigquery-storage 
 
-# Bibliotecas para o Chatbot LangChain
+# --- Analytics Engineering (dbt) ---
+dbt-bigquery
+
+# --- Camada de Inteligência (LangChain + Gemini) ---
+google-generativeai 
 langchain
-langchain-google-genai
+langchain-google-genai>=1.0.10 
 langchain-community
+langchain-experimental
 sqlalchemy-bigquery
+
+# --- Utilitários e Infraestrutura ---
+psycopg2-binary
+python-dotenv
