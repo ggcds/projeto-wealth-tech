@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 # Configurações básicas da automação
 default_args = {
-    'owner': 'guigcds',
+    'owner': 'ggcds',
     'depends_on_past': False,
     'start_date': datetime(2026, 3, 1),
     'retries': 1,
