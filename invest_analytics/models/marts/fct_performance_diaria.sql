@@ -6,31 +6,40 @@
       "data_type": "date",
       "granularity": "day"
     },
-    cluster_by=['ticker']
+    cluster_by=['setor', 'ticker']
   )
 }}
 
 WITH silver_data AS (
     SELECT * FROM {{ ref('stg_cotacoes') }}
-    
-    -- Filtro fixo de 1 ano para garantir performance e relevância dos dados
     WHERE data_pregao >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR)
+),
+
+depara AS (
+    SELECT * FROM {{ ref('depara_tickers') }}
 ),
 
 market_indicators AS (
     SELECT
-        *,
-        -- Cálculo de volatilidade diária resiliente a erros (SAFE_DIVIDE)
-        ROUND(SAFE_DIVIDE((preco_fechamento - preco_abertura), preco_abertura) * 100, 2) AS variacao_diaria_pct,
+        s.*,
+        -- Cálculo de variação
+        ROUND(SAFE_DIVIDE((s.preco_fechamento - s.preco_abertura), s.preco_abertura) * 100, 2) AS variacao_diaria_pct,
         
-        -- Média móvel aritmética (SMA) de 7 períodos baseada em janelas de tempo
-        AVG(preco_fechamento) OVER (
-            PARTITION BY ticker 
-            ORDER BY data_pregao 
+        -- Média móvel aritmética (SMA)
+        AVG(s.preco_fechamento) OVER (
+            PARTITION BY s.ticker 
+            ORDER BY s.data_pregao 
             ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
         ) AS media_movel_7d
-    FROM silver_data
+    FROM silver_data s
 )
 
--- O SELECT final agora processa o lote completo de 1 ano
-SELECT * FROM market_indicators
+-- O SELECT final agora enriquece os dados com as informações das empresas
+SELECT 
+    m.*,
+    d.nome_empresa,
+    d.setor,
+    d.sub_setor,
+    d.tipo_ativo
+FROM market_indicators m
+LEFT JOIN depara d ON m.ticker = d.ticker

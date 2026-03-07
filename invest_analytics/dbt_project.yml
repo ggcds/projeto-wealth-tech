@@ -26,8 +26,17 @@ models:
     marts:
       +materialized: table
       +schema: gold
-      +cluster_by: ["data_pregao", "ticker"] # O BigQuery organiza os dados fisicamente por esses campos
+      +cluster_by: ["data_pregao", "ticker"]
       +partition_by:
         field: data_pregao
         data_type: date
         granularity: day
+
+# Configuração de Seeds (Arquivos CSV como tabelas)
+seeds:
+  invest_analytics:
+    +schema: gold
+    +column_types:
+      ticker: string
+      nome_empresa: string
+      setor: string

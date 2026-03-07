@@ -3,12 +3,30 @@ version: 2
 models:
   - name: fct_performance_diaria
     description: >
-      Tabela factual com indicadores de performance. 
-      Contém cálculos de volatilidade e médias móveis para análise de tendência.
+      Tabela factual enriquecida com metadados das empresas. 
+      Combina cotações históricas com setores e nomes oficiais para facilitar análises da IA.
     columns:
+      - name: data_pregao
+        description: "Data do fechamento do pregão."
+        tests:
+          - not_null
+
       - name: ticker
-        description: "Símbolo da empresa listada na bolsa."
+        description: "Símbolo da empresa (ex: PETR4.SA)."
+        tests:
+          - not_null
+
+      - name: nome_empresa
+        description: "Razão social ou nome fantasia da empresa vindo da seed depara_tickers."
+        tests:
+          - not_null:
+              severity: warn # Avisa se algum ticker novo não tiver depara mapeado
+
+      - name: setor
+        description: "Setor de atuação da empresa (ex: Energia, Financeiro)."
+
       - name: variacao_diaria_pct
-        description: "Variação percentual entre o preço de fechamento e abertura do mesmo dia."
+        description: "Variação percentual entre o preço de fechamento e abertura."
+
       - name: media_movel_7d
-        description: "Média aritmética do preço de fechamento dos últimos 7 dias de negociação."
+        description: "Média aritmética (SMA) dos últimos 7 dias de negociação."
