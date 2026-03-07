@@ -21,3 +21,6 @@ invest_analytics/packages/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Airflow
+airflow/airflow.cfg
