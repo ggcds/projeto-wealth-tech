@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: stg_cotacoes
+    description: "Tabela de cotações diárias limpas e tipadas dos ativos da B3."
+    columns:
+      - name: data_pregao
+        description: "Data do pregão financeiro (YYYY-MM-DD)."
+        tests:
+          - not_null
+      - name: ticker
+        description: "Código do ativo na B3 (ex: PETR4, VALE3)."
+        tests:
+          - not_null
+      - name: preco_fechamento
+        description: "Preço de ajuste final do ativo no dia."

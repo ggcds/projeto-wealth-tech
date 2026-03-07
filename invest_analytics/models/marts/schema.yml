@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: fct_performance_diaria
+    description: >
+      Tabela factual com indicadores de performance. 
+      Contém cálculos de volatilidade e médias móveis para análise de tendência.
+    columns:
+      - name: ticker
+        description: "Símbolo da empresa listada na bolsa."
+      - name: variacao_diaria_pct
+        description: "Variação percentual entre o preço de fechamento e abertura do mesmo dia."
+      - name: media_movel_7d
+        description: "Média aritmética do preço de fechamento dos últimos 7 dias de negociação."
