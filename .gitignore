@@ -1,13 +1,14 @@
 # Ambiente Virtual
-.env/
+.env
+.env.*
 venv/
 .venv/
 env/
-.env
 
 # Credenciais e Segredos (Segurança Máxima)
 credentials/
-# A pasta credentials/ já protege as chaves JSON lá dentro.
+*.key
+*.pem
 
 # Python caches
 __pycache__/
@@ -15,9 +16,9 @@ __pycache__/
 .pytest_cache/
 
 # Logs Gerais e dbt
+*.log
 logs/
-invest_analytics/logs/
-invest_analytics/*.log
+**/logs/
 
 # dbt artefatos e configurações locais
 invest_analytics/target/
@@ -27,9 +28,9 @@ invest_analytics/.user.yml
 
 # Airflow
 airflow/airflow.cfg
-airflow/logs/
 airflow/unittests.cfg
-airflow/*.db
+airflow/logs/
+*.db
 
 # Sistema
 .DS_Store
