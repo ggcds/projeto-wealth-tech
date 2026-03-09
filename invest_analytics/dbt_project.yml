@@ -15,6 +15,10 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+persist_docs:
+  relation: true
+  columns: true
+
 # Configuração de Modelos e Camadas
 models:
   invest_analytics:
