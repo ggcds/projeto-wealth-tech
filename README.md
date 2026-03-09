@@ -35,6 +35,7 @@ PROJETO_WEALTH_TECH/
 ├── Dockerfile              # Imagem customizada com dbt e libs de IA
 ├── docker-compose.yaml     # Orquestração de serviços locais
 └── requirements.txt        # Dependências Python
+```
 
 
 
