@@ -15,13 +15,13 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
-persist_docs:
-  relation: true
-  columns: true
-
 # Configuração de Modelos e Camadas
 models:
   invest_analytics:
+    +persist_docs:
+      relation: true
+      columns: true
+    
     # Camada Silver: Dados limpos e padronizados
     staging:
       +materialized: view
@@ -40,6 +40,9 @@ models:
 seeds:
   invest_analytics:
     +schema: gold
+    +persist_docs:
+      relation: true
+      columns: true
     +column_types:
       ticker: string
       nome_empresa: string
