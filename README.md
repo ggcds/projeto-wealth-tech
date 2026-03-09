@@ -8,9 +8,9 @@ A solução foi desenhada com foco em escalabilidade e automação utilizando o 
 
 * **Orquestração (Docker)**: Ambiente multi-container isolado com Apache Airflow e PostgreSQL para metadados.
 * **Ingestão (Bronze)**: Scripts Python utilizando `yfinance` para extração de histórico de ativos.
-* **Transformação (Silver/Gold)**: dbt para limpeza de dados e modelagem de KPIs financeiros como Variação % e Média Móvel.
+* **Transformação (Silver/Gold)**: dbt utilizando `dbt build` para execução integrada de Seeds, Models e Tests, garantindo consistência e idempotência do pipeline.
 * **Enriquecimento (Seeds)**: Uso de tabelas de referência (`depara_tickers`) para mapeamento setorial das empresas.
-* **Consumo (IA)**: Chatbot desenvolvido com LangChain e Gemini para análise de portfólio via linguagem natural.
+* **Consumo (IA)**: Agente SQL desenvolvido com LangChain + Gemini, integrado ao BigQuery e utilizando metadata do dbt para geração dinâmica de consultas analíticas via linguagem natural.
 
 ---
 
@@ -51,8 +51,10 @@ Para validar o pipeline e a camada de inteligência, siga este roteiro:
 
 ### 2. Enriquecimento e Transformação (CLI)
 Como você agora utiliza uma arquitetura profissional, execute os comandos diretamente no container do **scheduler**:
-* **Seeds:** `docker exec -it airflow_scheduler bash -c "cd invest_analytics && dbt seed"` (carrega o depara de empresas e setores).
-* **Run & Test:** `docker exec -it airflow_scheduler bash -c "cd invest_analytics && dbt run && dbt test"` (processa a camada Gold e valida a integridade dos dados).
+* **Build (Seeds + Models + Tests):**
+`docker exec -it airflow_scheduler bash -c "cd invest_analytics && dbt build --profiles-dir ."`
+
+O comando `dbt build` executa seeds, modelos e testes respeitando o DAG de dependências do dbt, garantindo consistência mesmo quando o CSV de referência (`depara_tickers`) for alterado.
 
 ### 3. Validação no Google BigQuery
 * **Camada Gold:** Acesse a tabela `gold.fct_performance_diaria`.
@@ -78,6 +80,7 @@ Este projeto foi construído seguindo padrões de engenharia de software aplicad
 * **Sandbox Optimization**: Devido às restrições de DML na conta gratuita do BigQuery, os modelos utilizam `materialized='table'`, garantindo o processamento completo sem falhas de permissão de escrita.
 * **Eficiência de Custo**: Implementação de `partition_by` por dia e `cluster_by` por setor/ticker na camada Gold, reduzindo drasticamente o volume de dados escaneados por consulta da IA.
 * **Automação de Setup**: O `docker-compose` gerencia o ciclo de vida completo: desde a prontidão do banco Postgres até a criação automática do usuário administrador do Airflow.
+* **Metadata Persistida (dbt → BigQuery)**: As descrições definidas no `schema.yml` podem ser persistidas no BigQuery via `persist_docs`, permitindo que a camada de IA utilize metadados enriquecidos para geração de consultas mais semânticas e contextualizadas.
 
 ---
 Desenvolvido por **Guilherme Caldas**
