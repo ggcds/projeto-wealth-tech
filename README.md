@@ -10,7 +10,7 @@ A solução foi desenhada com foco em escalabilidade e automação utilizando o 
 * **Ingestão (Bronze)**: Scripts Python utilizando `yfinance` para extração de histórico de ativos.
 * **Transformação (Silver/Gold)**: dbt utilizando `dbt build` para execução integrada de Seeds, Models e Tests, garantindo consistência e idempotência do pipeline.
 * **Enriquecimento (Seeds)**: Uso de tabelas de referência (`depara_tickers`) para mapeamento setorial das empresas.
-* **Consumo (IA)**: Agente SQL desenvolvido com LangChain + Gemini, integrado ao BigQuery e utilizando metadata do dbt para geração dinâmica de consultas analíticas via linguagem natural.
+* **Consumo (IA & Web)**: Aplicação interativa desenvolvida com **Streamlit**, LangChain e Gemini, atuando como um Agente Text-to-SQL integrado ao BigQuery para geração dinâmica de consultas analíticas.
 
 ---
 
@@ -30,7 +30,7 @@ PROJETO_WEALTH_TECH/
 │   ├── seeds/              # Dados mestres (depara_tickers.csv)
 │   └── dbt_project.yml     # Configurações do dbt
 ├── src/                    # Código fonte da aplicação
-│   ├── consumption/        # Camada de IA (Chatbot)
+│   ├── consumption/        # Camada de IA (Chatbot Streamlit)
 │   └── ingestion/          # Scripts de extração (Yahoo Finance)
 ├── Dockerfile              # Imagem customizada com dbt e libs de IA
 ├── docker-compose.yaml     # Orquestração de serviços locais
@@ -59,6 +59,11 @@ O comando `dbt build` executa seeds, modelos e testes respeitando o DAG de depen
 ### 3. Validação no Google BigQuery
 * **Camada Gold:** Acesse a tabela `gold.fct_performance_diaria`.
 * **Diferencial:** Note que os dados agora estão enriquecidos com `nome_empresa` e `setor`, permitindo análises granulares pelo Chatbot.
+
+### 4. Interface Web (Chatbot Financeiro)
+Acesse a camada de consumo subindo o servidor Streamlit embarcado no container:
+```bash
+docker exec -it airflow_scheduler streamlit run /opt/airflow/src/consumption/app_wealth_chat.py --server.port=8501 --server.address=0.0.0.0 --browser.serverAddress=localhost
 
 ---
 

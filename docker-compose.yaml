@@ -51,3 +51,5 @@ services:
     <<: *airflow-common
     container_name: airflow_scheduler
     command: scheduler
+    ports:
+      - "8501:8501" # Mapeia a porta do Streamlit para o seu host (localhost)
