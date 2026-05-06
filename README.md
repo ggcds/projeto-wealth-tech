@@ -64,6 +64,7 @@ O comando `dbt build` executa seeds, modelos e testes respeitando o DAG de depen
 Acesse a camada de consumo subindo o servidor Streamlit embarcado no container:
 ```bash
 docker exec -it airflow_scheduler streamlit run /opt/airflow/src/consumption/app_wealth_chat.py --server.port=8501 --server.address=0.0.0.0 --browser.serverAddress=localhost
+```
 
 ---
 

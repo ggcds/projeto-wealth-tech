@@ -19,7 +19,7 @@ st.caption("Seu assistente financeiro inteligente integrado ao BigQuery.")
 @st.cache_resource
 def load_services():
     bq = bigquery.Client(project="projeto-wealth-tech")
-    llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", temperature=0)
+    llm = ChatGoogleGenerativeAI(model="gemini-flash-lite-latest", temperature=0)
     return bq, llm
 
 bq_client, llm = load_services()
