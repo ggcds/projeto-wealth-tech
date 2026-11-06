@@ -2,8 +2,6 @@
 
 End-to-end data platform for Brazilian stocks (RENT3, PETR4, VALE3, ITUB4, WEGE3): daily ingestion from Yahoo Finance, a medallion model in BigQuery built with dbt, orchestration with Airflow, and a chat interface where you ask questions in plain language and get answers computed from the warehouse.
 
-![CI](https://github.com/ggcds/projeto-wealth-tech/actions/workflows/ci.yml/badge.svg)
-
 ## Architecture
 
 ```mermaid
