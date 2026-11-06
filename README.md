@@ -1,92 +1,93 @@
-# 📈 Wealth Tech Pipeline - B3 Investment Data
+# B3 Market Data Pipeline with a Text-to-SQL Assistant
 
-Este projeto implementa um ecossistema de dados completo para análise de ativos estratégicos da B3 (RENT3, PETR4, VALE3, ITUB4, WEGE3), integrando Engenharia de Dados, Analytics Engineering e IA Generativa.
+End-to-end data platform for Brazilian stocks (RENT3, PETR4, VALE3, ITUB4, WEGE3): daily ingestion from Yahoo Finance, a medallion model in BigQuery built with dbt, orchestration with Airflow, and a chat interface where you ask questions in plain language and get answers computed from the warehouse.
 
-## 🏗️ Arquitetura e Tecnologias
+![CI](https://github.com/ggcds/projeto-wealth-tech/actions/workflows/ci.yml/badge.svg)
 
-A solução foi desenhada com foco em escalabilidade e automação utilizando o BigQuery Sandbox:
+## Architecture
 
-* **Orquestração (Docker)**: Ambiente multi-container isolado com Apache Airflow e PostgreSQL para metadados.
-* **Ingestão (Bronze)**: Scripts Python utilizando `yfinance` para extração de histórico de ativos.
-* **Transformação (Silver/Gold)**: dbt utilizando `dbt build` para execução integrada de Seeds, Models e Tests, garantindo consistência e idempotência do pipeline.
-* **Enriquecimento (Seeds)**: Uso de tabelas de referência (`depara_tickers`) para mapeamento setorial das empresas.
-* **Consumo (IA & Web)**: Aplicação interativa desenvolvida com **Streamlit**, LangChain e Gemini, atuando como um Agente Text-to-SQL integrado ao BigQuery para geração dinâmica de consultas analíticas.
+```mermaid
+flowchart LR
+    A[Yahoo Finance] -->|Python ingestion| B[(BigQuery<br/>bronze)]
+    B -->|dbt staging| C[(silver<br/>stg_cotacoes)]
+    C -->|dbt marts + seed| D[(gold<br/>fct_performance_diaria)]
+    D --> E[Streamlit chat]
+    E -->|question| F[Gemini<br/>Text-to-SQL]
+    F -->|validated SELECT| D
+    G[Airflow DAG<br/>weekdays after market close] -.orchestrates.-> B
+    G -.orchestrates.-> C
+```
 
----
+| Layer | What it does |
+|---|---|
+| **Ingestion** | Pulls one year of daily OHLCV data per ticker with `yfinance` and loads it into `bronze.historico_acoes`. |
+| **Silver** | `stg_cotacoes`: typed columns (`NUMERIC` for prices), one row per ticker and trading day, partitioned by date and clustered by ticker. |
+| **Gold** | `fct_performance_diaria`: daily return, intraday change and 7-day moving average, enriched with company name and sector from a dbt seed. Partitioned by date, clustered by sector and ticker. |
+| **Quality** | `dbt build` runs seeds, models and tests together: `not_null` checks plus a singular test that fails if any ticker has more than one row per trading day. |
+| **Orchestration** | Airflow DAG (ingestion → `dbt build`) scheduled on weekdays after the B3 close, running on Docker with Postgres as the metadata database. |
+| **Consumption** | Streamlit chat backed by Gemini: the question becomes SQL, the SQL runs on BigQuery, and the result comes back as a short answer, with the executed query available for inspection. |
 
-## 📁 Estrutura do Projeto
+## Design decisions
 
-Organização baseada em padrões de mercado para separação de responsabilidades:
+**Direct prompting instead of an autonomous SQL agent.** The first version used a LangChain SQL agent that explored the schema on its own. On the free tier it kept hitting API rate limits, cost several calls per question and produced inconsistent answers. Replacing it with a single prompt that carries a curated schema (column types, sample values for sectors and tickers) cut the number of LLM calls per question to two and made results far more consistent.
+
+**Guardrails on generated SQL.** The model's output is treated as untrusted input. Before execution, the app only accepts a single `SELECT`/`WITH` statement, rejects any DDL or DML keyword, and runs the query with `maximum_bytes_billed` set. It can also use a separate read-only service account (`BQ_READONLY_CREDENTIALS`), so the chat never shares credentials with the dbt jobs that write to the warehouse.
+
+**Idempotent loads.** Each ingestion run fetches the full one-year window, so the bronze table is replaced on every run, and the staging model deduplicates by ticker and date as a second safeguard. Running the DAG twice produces the same gold table.
+
+**Built for the BigQuery sandbox.** The free tier does not allow DML, so models are materialized as partitioned and clustered tables instead of incremental merges. Partitioning by date and clustering by sector and ticker keeps the bytes scanned by each chat query small.
+
+**Column descriptions reach the warehouse.** `persist_docs` writes the descriptions from `schema.yml` into BigQuery, so the metadata the LLM relies on lives next to the data.
+
+## Project structure
 
 ```text
-PROJETO_WEALTH_TECH/
-├── airflow/                # Configurações do Orquestrador Airflow
-│   ├── dags/               # Pipelines automatizados
-│   ├── logs/               # Histórico de execuções (ignorado pelo Git)
-│   └── plugins/            # Componentes customizados
-├── credentials/            # Chaves de segurança (GCP Service Account)
-├── invest_analytics/       # Projeto dbt (Transformação)
-│   ├── models/             # SQLs de Staging e Marts
-│   ├── seeds/              # Dados mestres (depara_tickers.csv)
-│   └── dbt_project.yml     # Configurações do dbt
-├── src/                    # Código fonte da aplicação
-│   ├── consumption/        # Camada de IA (Chatbot Streamlit)
-│   └── ingestion/          # Scripts de extração (Yahoo Finance)
-├── Dockerfile              # Imagem customizada com dbt e libs de IA
-├── docker-compose.yaml     # Orquestração de serviços locais
-└── requirements.txt        # Dependências Python
+├── airflow/dags/            # Airflow DAG: ingestion → dbt build
+├── invest_analytics/        # dbt project
+│   ├── models/staging/      # silver layer
+│   ├── models/marts/        # gold layer
+│   ├── seeds/               # ticker → company and sector mapping
+│   └── tests/               # singular data tests
+├── src/ingestion/           # Yahoo Finance extraction
+├── src/consumption/         # Streamlit + Gemini chat
+├── Dockerfile               # Airflow image with dbt and AI libraries
+└── docker-compose.yaml      # Airflow webserver, scheduler and Postgres
 ```
 
+## Running locally
 
+**Requirements:** Docker, a GCP project with BigQuery enabled, a service account key and a Gemini API key.
 
----
-
-## 🖥️ Guia da Demonstração
-
-Para validar o pipeline e a camada de inteligência, siga este roteiro:
-
-### 1. Preparação da Infraestrutura
-* **Docker:** Execute `docker-compose up -d --build`. O uso da flag `--build` garante que a imagem customizada seja montada com o `dbt` e as libs de IA pré-instaladas, evitando erros de execução.
-* **Automação de Acesso:** O ambiente já inicializa o banco de dados e cria o usuário **admin** (senha: `admin`) automaticamente no boot.
-
-### 2. Enriquecimento e Transformação (CLI)
-Como você agora utiliza uma arquitetura profissional, execute os comandos diretamente no container do **scheduler**:
-* **Build (Seeds + Models + Tests):**
-`docker exec -it airflow_scheduler bash -c "cd invest_analytics && dbt build --profiles-dir ."`
-
-O comando `dbt build` executa seeds, modelos e testes respeitando o DAG de dependências do dbt, garantindo consistência mesmo quando o CSV de referência (`depara_tickers`) for alterado.
-
-### 3. Validação no Google BigQuery
-* **Camada Gold:** Acesse a tabela `gold.fct_performance_diaria`.
-* **Diferencial:** Note que os dados agora estão enriquecidos com `nome_empresa` e `setor`, permitindo análises granulares pelo Chatbot.
-
-### 4. Interface Web (Chatbot Financeiro)
-Acesse a camada de consumo subindo o servidor Streamlit embarcado no container:
-```bash
-docker exec -it airflow_scheduler streamlit run /opt/airflow/src/consumption/app_wealth_chat.py --server.port=8501 --server.address=0.0.0.0 --browser.serverAddress=localhost
-```
-
----
-
-## 🛠️ Como Executar
-
-1. **Credenciais:** Coloque sua chave do GCP em `credentials/gcp_key.json`.
-2. **Ambiente:** Certifique-se de que o arquivo `requirements.txt` e o `Dockerfile` estão na raiz do projeto.
-3. **Deploy:**
+1. Save the service account key as `credentials/gcp_key.json` (the folder is git-ignored).
+2. Export your Gemini key: `export GOOGLE_API_KEY=...`
+3. Start the stack:
    ```bash
    docker-compose up -d --build
-    ```
+   ```
+4. Open Airflow at `http://localhost:8080` and trigger `pipeline_wealth_tech`, or run dbt directly:
+   ```bash
+   docker exec -it airflow_scheduler bash -c "cd invest_analytics && dbt build --profiles-dir ."
+   ```
+5. Start the chat at `http://localhost:8501`:
+   ```bash
+   docker exec -it airflow_scheduler streamlit run /opt/airflow/src/consumption/app_wealth_chat.py \
+     --server.port=8501 --server.address=0.0.0.0
+   ```
 
-## 💡 Notas Técnicas
+Optional environment variables for the chat: `BQ_READONLY_CREDENTIALS` (path to a read-only service account key) and `MAX_BYTES_BILLED` (default: 1 GB per query).
 
-Este projeto foi construído seguindo padrões de engenharia de software aplicados a dados, garantindo robustez e facilidade de manutenção:
+## Example questions
 
-* **Infraestrutura Imutável**: O uso do `Dockerfile` para pré-instalar o `dbt-bigquery` e bibliotecas de IA elimina o erro de "Permission Denied" e garante que o ambiente seja idêntico em qualquer máquina.
-* **Resiliência Analítica**: Os modelos SQL utilizam `SAFE_DIVIDE` para evitar erros de divisão por zero e Window Functions (`ROWS BETWEEN`) para garantir médias móveis consistentes, mesmo com lacunas de dados em feriados.
-* **Sandbox Optimization**: Devido às restrições de DML na conta gratuita do BigQuery, os modelos utilizam `materialized='table'`, garantindo o processamento completo sem falhas de permissão de escrita.
-* **Eficiência de Custo**: Implementação de `partition_by` por dia e `cluster_by` por setor/ticker na camada Gold, reduzindo drasticamente o volume de dados escaneados por consulta da IA.
-* **Automação de Setup**: O `docker-compose` gerencia o ciclo de vida completo: desde a prontidão do banco Postgres até a criação automática do usuário administrador do Airflow.
-* **Metadata Persistida (dbt → BigQuery)**: As descrições definidas no `schema.yml` podem ser persistidas no BigQuery via `persist_docs`, permitindo que a camada de IA utilize metadados enriquecidos para geração de consultas mais semânticas e contextualizadas.
+- "What was Localiza's average closing price in the last 30 days?"
+- "Which stock had the highest daily return last week?"
+- "Compare the 7-day moving average of VALE3 and PETR4 this month."
+
+## Next steps
+
+- Evaluation set of questions with expected answers to measure Text-to-SQL accuracy over time.
+- Incremental models once the project moves off the sandbox.
+- Dedicated container for the chat instead of running it inside the scheduler.
 
 ---
-Desenvolvido por **Guilherme Caldas**
+
+Built by [Guilherme Caldas](https://www.linkedin.com/in/guilhermebcaldas/). Originally developed as the applied project for my MBA in AI, Data Science and Big Data at Ibmec; the full technical report (in Portuguese) is in [`relatorio.md`](relatorio.md).

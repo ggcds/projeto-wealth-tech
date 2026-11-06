@@ -1,4 +1,5 @@
 import os
+import re
 import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
@@ -16,9 +17,36 @@ st.caption("Seu assistente financeiro inteligente integrado ao BigQuery.")
 # 🔌 INICIALIZAÇÃO DE SERVIÇOS (COM CACHE)
 # ==========================================
 # O @st.cache_resource impede que o BQ e o Gemini reiniciem a cada clique na tela
+# Limite de bytes processados por consulta gerada pela IA (padrão: 1 GB)
+MAX_BYTES_BILLED = int(os.getenv("MAX_BYTES_BILLED", 1_000_000_000))
+
+FORBIDDEN_SQL = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|MERGE|CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|CALL|EXECUTE)\b",
+    re.IGNORECASE,
+)
+
+
+def validate_sql(sql: str) -> str:
+    """Aceita apenas uma única consulta de leitura (SELECT/WITH)."""
+    sql = sql.strip().rstrip(";").strip()
+    if ";" in sql:
+        raise ValueError("Apenas uma consulta por vez é permitida.")
+    if not re.match(r"^(SELECT|WITH)\b", sql, re.IGNORECASE):
+        raise ValueError("Apenas consultas de leitura (SELECT) são permitidas.")
+    if FORBIDDEN_SQL.search(sql):
+        raise ValueError("A consulta gerada contém um comando não permitido.")
+    return sql
+
+
 @st.cache_resource
 def load_services():
-    bq = bigquery.Client(project="projeto-wealth-tech")
+    # Recomendado: apontar BQ_READONLY_CREDENTIALS para uma service account
+    # apenas com BigQuery Data Viewer + Job User, separada da conta do dbt.
+    readonly_key = os.getenv("BQ_READONLY_CREDENTIALS")
+    if readonly_key:
+        bq = bigquery.Client.from_service_account_json(readonly_key, project="projeto-wealth-tech")
+    else:
+        bq = bigquery.Client(project="projeto-wealth-tech")
     llm = ChatGoogleGenerativeAI(model="gemini-flash-lite-latest", temperature=0)
     return bq, llm
 
@@ -32,13 +60,18 @@ Você é um engenheiro de dados. Converta a pergunta do usuário em SQL válido 
 Retorne APENAS o código SQL. Sem markdown (```sql). Use ALIAS nas funções de agregação.
 
 Schema de `projeto-wealth-tech.gold.fct_performance_diaria`:
-- ticker (STRING): Ex: "RENT3.SA", "VALE3.SA", "PETR4.SA", "ITUB4.SA", "WEGE3.SA"
 - data_pregao (DATE)
-- preco_fechamento (FLOAT64)
-- media_movel_7d (FLOAT64)
+- ticker (STRING): Ex: "RENT3.SA", "VALE3.SA", "PETR4.SA", "ITUB4.SA", "WEGE3.SA"
+- preco_abertura, preco_fechamento, preco_maximo, preco_minimo (NUMERIC)
+- volume_negociado (INT64)
+- variacao_intradia_pct (NUMERIC): variação % entre fechamento e abertura do mesmo pregão
+- retorno_diario_pct (NUMERIC): variação % do fechamento contra o pregão anterior
+- media_movel_7d (NUMERIC)
 - setor (STRING): Ex: "Consumo Cíclico", "Materiais Básicos", "Bens de Capital", "Energia", "Financeiro"
 - sub_setor (STRING): Ex: "Aluguel de Carros", "Mineração", "Máquinas e Equipamentos", "Petróleo e Gás", "Bancos"
 - nome_empresa (STRING): Ex: "Localiza Rent a Car S.A.", "Vale S.A.", "WEG S.A.", "Petróleo Brasileiro S.A."
+
+Gere somente uma consulta SELECT. Nunca use INSERT, UPDATE, DELETE, MERGE, CREATE, DROP ou ALTER.
 
 Nota: Para filtros textuais, prefira usar as colunas 'setor' e 'sub_setor' com os valores exatos listados acima (usando = ou IN).
 
@@ -93,9 +126,11 @@ if user_query := st.chat_input("Ex: Qual a média da Localiza no último mês?")
                 # 1. Gera o SQL
                 sql_query = chain_sql.invoke({"pergunta": user_query})
                 sql_limpo = sql_query.replace("```sql", "").replace("```", "").strip()
-                
-                # 2. Executa no banco
-                query_job = bq_client.query(sql_limpo)
+                sql_limpo = validate_sql(sql_limpo)
+
+                # 2. Executa no banco, com teto de custo por consulta
+                job_config = bigquery.QueryJobConfig(maximum_bytes_billed=MAX_BYTES_BILLED)
+                query_job = bq_client.query(sql_limpo, job_config=job_config)
                 resultados = query_job.result()
                 dados_brutos = [dict(row) for row in resultados]
                 

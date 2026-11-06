@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-parse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: pip install ruff dbt-bigquery
+
+      - name: Lint Python
+        run: ruff check src airflow
+
+      - name: Validate dbt project
+        working-directory: invest_analytics
+        run: |
+          mkdir -p ci
+          cat > ci/profiles.yml <<'PROFILE'
+          invest_analytics:
+            target: ci
+            outputs:
+              ci:
+                type: bigquery
+                method: oauth
+                project: ci-placeholder
+                dataset: silver
+                threads: 1
+          PROFILE
+          dbt parse --profiles-dir ci

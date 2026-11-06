@@ -22,8 +22,14 @@ depara AS (
 market_indicators AS (
     SELECT
         s.*,
-        -- Cálculo de variação
-        ROUND(SAFE_DIVIDE((s.preco_fechamento - s.preco_abertura), s.preco_abertura) * 100, 2) AS variacao_diaria_pct,
+        -- Variação intradiária: fechamento contra a abertura do mesmo pregão
+        ROUND(SAFE_DIVIDE((s.preco_fechamento - s.preco_abertura), s.preco_abertura) * 100, 2) AS variacao_intradia_pct,
+
+        -- Retorno diário: fechamento contra o fechamento do pregão anterior
+        ROUND(SAFE_DIVIDE(
+            s.preco_fechamento - LAG(s.preco_fechamento) OVER (PARTITION BY s.ticker ORDER BY s.data_pregao),
+            LAG(s.preco_fechamento) OVER (PARTITION BY s.ticker ORDER BY s.data_pregao)
+        ) * 100, 2) AS retorno_diario_pct,
         
         -- Média móvel aritmética (SMA)
         AVG(s.preco_fechamento) OVER (
@@ -54,7 +60,8 @@ SELECT
     m.volume_negociado,
 
     -- 4. Indicadores de Performance (KPIs Calculados)
-    m.variacao_diaria_pct,
+    m.variacao_intradia_pct,
+    m.retorno_diario_pct,
     m.media_movel_7d
 
 FROM market_indicators m
