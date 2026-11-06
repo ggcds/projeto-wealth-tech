@@ -14,7 +14,7 @@ with DAG(
     "pipeline_wealth_tech",
     default_args=default_args,
     description="Extração Yahoo Finance e Transformação dbt",
-    schedule_interval=None,  # gatilho manual
+    schedule_interval="0 22 * * 1-5",  # dias úteis, após o fechamento da B3 (22h UTC)
     catchup=False,
 ) as dag:
 

@@ -25,8 +25,11 @@ models:
       - name: setor
         description: "Setor de atuação da empresa (ex: Energia, Financeiro)."
 
-      - name: variacao_diaria_pct
-        description: "Variação percentual entre o preço de fechamento e abertura."
+      - name: variacao_intradia_pct
+        description: "Variação percentual entre o fechamento e a abertura do mesmo pregão."
+
+      - name: retorno_diario_pct
+        description: "Retorno percentual do fechamento em relação ao fechamento do pregão anterior."
 
       - name: media_movel_7d
         description: "Média aritmética (SMA) dos últimos 7 dias de negociação."

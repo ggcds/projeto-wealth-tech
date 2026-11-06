@@ -24,13 +24,13 @@ models:
     
     # Camada Silver: Dados limpos e padronizados
     staging:
-      +materialized: view
+      +materialized: table
     
     # Camada Gold: Indicadores de Performance e Agregados
     marts:
       +materialized: table
       +schema: gold
-      +cluster_by: ["data_pregao", "ticker"]
+      +cluster_by: ["setor", "ticker"]
       +partition_by:
         field: data_pregao
         data_type: date

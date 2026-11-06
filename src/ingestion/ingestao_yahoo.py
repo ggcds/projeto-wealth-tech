@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import yfinance as yf
 import pandas as pd
@@ -65,7 +66,9 @@ def load_to_bigquery(df, project_id, dataset, table, credentials):
             destination_table=destination,
             project_id=project_id,
             credentials=credentials,
-            if_exists='append',
+            # A extração sempre traz a janela completa (1 ano), então a bronze é
+            # substituída a cada execução. Com 'append', cada run duplicava os pregões.
+            if_exists='replace',
             progress_bar=False
         )
         logging.info("Carga concluída com sucesso!")
@@ -81,4 +84,4 @@ if __name__ == "__main__":
         load_to_bigquery(data, PROJECT_ID, DATASET_ID, TABLE_NAME, creds)
     except Exception as e:
         logging.critical(f"Falha crítica no pipeline: {e}")
-        exit(1)
+        sys.exit(1)

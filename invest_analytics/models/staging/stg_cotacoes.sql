@@ -24,6 +24,9 @@ final_transformation AS (
         CAST(close AS NUMERIC) as preco_fechamento,
         CAST(volume AS INT64) as volume_negociado
     FROM raw_source
+    WHERE TRUE  -- o BigQuery exige WHERE, GROUP BY ou HAVING junto do QUALIFY
+    -- Garante um registro por ativo e pregão, mesmo que a bronze receba cargas repetidas
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY UPPER(ticker), CAST(date AS DATE) ORDER BY date DESC) = 1
 )
 
 SELECT * FROM final_transformation
